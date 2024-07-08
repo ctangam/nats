@@ -6,12 +6,12 @@ pub struct Publish {
 }
 
 impl Publish {
-    pub fn new(subject: String, reply_to: Option<String>, size: usize, payload: Option<String>) -> Self {
+    pub fn new(subject: &str, reply_to: Option<&str>, size: usize, payload: Option<&str>) -> Self {
         Self {
-            subject,
-            reply_to,
+            subject: String::from(subject),
+            reply_to: reply_to.map(String::from),
             size,
-            payload,
+            payload: payload.map(String::from),
         }
     }
 }
@@ -24,6 +24,24 @@ impl Into<String> for Publish {
             format!("PUB {} {} {}\r\n{}\r\n", self.subject, self.reply_to.unwrap(), self.size, self.payload.unwrap_or_default())
         } else {
             format!("PUB {} {}\r\n{}\r\n", self.subject, self.size, self.payload.unwrap_or_default())
+        }
+    }
+}
+
+impl From<&str> for Publish {
+    fn from(value: &str) -> Self {
+        let parts: Vec<&str> = value.split("\r\n").collect();
+        let meta: Vec<&str> = parts[0].split_whitespace().collect();
+        let payload = if parts[1].is_empty() {
+            None
+        } else {
+            Some(parts[1])
+        };
+        if meta.len() == 4 {
+            Self::new(meta[1], Some(meta[2]), meta[3].parse().unwrap(), payload)
+        } else {
+            Self::new(meta[1], None, meta[2].parse().unwrap(), payload)
+
         }
     }
 }

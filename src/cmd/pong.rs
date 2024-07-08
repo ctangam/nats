@@ -13,3 +13,9 @@ impl Into<String> for Pong {
         format!("PONG\r\n")
     }
 }
+
+impl From<&str> for Pong {
+    fn from(value: &str) -> Self {
+        Self::new()
+    }
+}

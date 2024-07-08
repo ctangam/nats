@@ -12,3 +12,9 @@ impl Into<String> for Connect {
         format!("CONNECT {}\r\n", "")
     }
 }
+
+impl From<&str> for Connect {
+    fn from(value: &str) -> Self {
+        Self::new()
+    }
+}

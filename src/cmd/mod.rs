@@ -15,10 +15,24 @@ pub mod sub;
 pub use sub::Sub;
 
 
-enum Command {
+pub enum Command {
     CONNECT(Connect),
-    PING,
-    PONG,
-    SUB,
-    PUB,
+    PING(Ping),
+    PONG(Pong),
+    SUB(Sub),
+    PUB(Publish),
+}
+
+impl Command {
+    pub fn from(bytes: &[u8]) -> Self {
+        let s = String::from_utf8_lossy(bytes);
+        match s.split_whitespace().next() {
+            Some("CONNECT") => Command::CONNECT(Connect::from(&*s)),
+            Some("PING") => Command::PING(Ping::from(&*s)),
+            Some("PONG") => Command::PONG(Pong::from(&*s)),
+            Some("SUB") => Command::SUB(Sub::from(&*s)),
+            Some("PUB") => Command::PUB(Publish::from(&*s)),
+            _ => unimplemented!()
+        }
+    }
 }

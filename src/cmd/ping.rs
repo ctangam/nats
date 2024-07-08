@@ -13,3 +13,9 @@ impl Into<String> for Ping {
         format!("PING\r\n")
     }
 }
+
+impl From<&str> for Ping {
+    fn from(value: &str) -> Self {
+        Self::new()
+    }
+}

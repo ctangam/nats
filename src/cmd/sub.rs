@@ -5,11 +5,11 @@ pub struct Sub {
 }
 
 impl Sub {
-    pub fn new(subject: String, queue_group: Option<String>, sid: String) -> Self {
+    pub fn new(subject: &str, queue_group: Option<&str>, sid: &str) -> Self {
         Self {
-            subject,
-            queue_group,
-            sid,
+            subject: String::from(subject),
+            queue_group: queue_group.map(String::from),
+            sid: String::from(sid),
         }
     }
 }
@@ -22,6 +22,17 @@ impl Into<String> for Sub {
             format!("SUB {} {} {}\r\n", self.subject, self.queue_group.unwrap(), self.sid)
         } else {
             format!("SUB {} {}\r\n", self.subject, self.sid)
+        }
+    }
+}
+
+impl From<&str> for Sub {
+    fn from(value: &str) -> Self {
+        let parts: Vec<&str> = value.split_whitespace().collect();
+        if parts.len() == 5 {
+            Self::new(parts[1], Some(parts[2]), parts[3])
+        } else {
+            Self::new(parts[1], None, parts[2])
         }
     }
 }
