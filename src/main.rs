@@ -19,19 +19,21 @@ pub mod cmd;
 
 type Messages = Pin<Box<dyn Stream<Item = String> + Send>>;
 type DB = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
+type SIDMAP = Arc<Mutex<HashMap<String, String>>>;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let listener = TcpListener::bind("127.0.0.1:4222").await?;
     let db: DB = Arc::new(Mutex::new(HashMap::new()));
+    let sid_map: SIDMAP = Arc::new(Mutex::new(HashMap::new()));
 
     loop {
         let (stream, _) = listener.accept().await?;
-        tokio::spawn(handle_connection(stream, db.clone()));
+        tokio::spawn(handle_connection(stream, db.clone(), sid_map.clone()));
     }
 }
 
-async fn handle_connection(mut stream: TcpStream, db: DB) -> Result<(), Error> {
+async fn handle_connection(mut stream: TcpStream, db: DB, sid_map: SIDMAP) -> Result<(), Error> {
     let local_addr = stream.local_addr()?;
     let remote_addr = stream.peer_addr()?;
     let greeting: String = Info::new(
@@ -42,18 +44,18 @@ async fn handle_connection(mut stream: TcpStream, db: DB) -> Result<(), Error> {
     .into();
     stream.write(greeting.as_bytes()).await?;
 
-    let mut subscriptions: StreamMap<String, Messages> = StreamMap::new();
+    let mut subscriptions: StreamMap<(String, String), Messages> = StreamMap::new();
     loop {
         select! {
-            Some((channel_name, msg)) = subscriptions.next() => {
-                let msg: String = Msg::new(&channel_name, &channel_name, msg.len(), Some(&msg)).into();
+            Some(((subject, sid), msg)) = subscriptions.next() => {
+                let msg: String = Msg::new(&subject, &sid, msg.len(), Some(&msg)).into();
                 stream.write(msg.as_bytes()).await?;
             },
             rst = parse_cmd(&mut stream) => {
                 dbg!(&rst);
                 let cmd = match rst? { Some(cmd) => cmd, None => return Ok(()), };
                 println!("Received command");
-                handle_cmd(cmd, &mut stream, &db, &mut subscriptions).await?;
+                handle_cmd(cmd, &mut stream, &db, &mut subscriptions, &sid_map).await?;
             },
         }
     }
@@ -97,8 +99,9 @@ async fn parse_cmd(stream: &mut TcpStream) -> Result<Option<Command>> {
 async fn handle_cmd(
     cmd: Command,
     stream: &mut TcpStream,
-    db: &Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>,
-    subscriptions: &mut StreamMap<String, Pin<Box<dyn Stream<Item = String> + Send>>>,
+    db: &DB,
+    subscriptions: &mut StreamMap<(String, String), Messages>,
+    sid_map: &SIDMAP,
 ) -> Result<(), Error> {
     Ok(match cmd {
         Command::CONNECT(_) => {
@@ -134,10 +137,19 @@ async fn handle_cmd(
                     }
                 }
             });
-            subscriptions.insert(sub.subject.clone(), rx);
+            subscriptions.insert((sub.subject.clone(), sub.sid.clone()), rx);
+
+            sid_map.lock().unwrap().insert(sub.sid, sub.subject);
 
             // let reply: String = Ok::new().into();
             // stream.write(reply.as_bytes()).await?;
+        }
+        Command::UNSUB(unsub) => {
+            sid_map
+                .lock()
+                .unwrap()
+                .remove(&unsub.sid)
+                .and_then(|subject| subscriptions.remove(&(subject, unsub.sid)));
         }
         Command::ERR(err) => {
             let reply: String = err.into();

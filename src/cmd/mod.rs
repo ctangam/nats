@@ -25,6 +25,9 @@ pub use msg::Msg;
 pub mod err;
 pub use err::Err;
 
+pub mod unsub;
+pub use unsub::UnSub;
+
 #[derive(Debug)]
 pub enum Command {
     OK(Ok),
@@ -34,6 +37,7 @@ pub enum Command {
     PING(Ping),
     PONG(Pong),
     SUB(Sub),
+    UNSUB(UnSub),
     PUB(Publish),
     MSG(Msg),
 }
@@ -77,6 +81,13 @@ impl Command {
                     Ok(None)
                 }
             }
+            Some("UNSUB") => {
+                if s.contains("\r\n") {
+                    Ok(Some(Command::UNSUB(UnSub::try_from(s.into_owned())?)))
+                } else {
+                    Ok(None)
+                }
+            }
             _ => Ok(None),
         }
     }
@@ -92,6 +103,7 @@ impl Command {
             Command::PUB(publish) => publish.into(),
             Command::MSG(msg) => msg.into(),
             Command::ERR(err) => err.into(),
+            Command::UNSUB(unsub) => unsub.into(),
         }
     }
 }
