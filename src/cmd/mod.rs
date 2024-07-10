@@ -22,8 +22,13 @@ pub use ok::Ok;
 pub mod msg;
 pub use msg::Msg;
 
+pub mod err;
+pub use err::Err;
+
+#[derive(Debug)]
 pub enum Command {
     OK(Ok),
+    ERR(Err),
     INFO(Info),
     CONNECT(Connect),
     PING(Ping),
@@ -34,15 +39,45 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn from(bytes: &[u8]) -> Option<Self> {
+    pub fn parse(bytes: &[u8]) -> anyhow::Result<Option<Self>> {
         let s = String::from_utf8_lossy(bytes);
         match s.split_whitespace().next() {
-            Some("CONNECT") if s.ends_with("\r\n") => Some(Command::CONNECT(Connect::from(&*s))),
-            Some("PING") if s.ends_with("\r\n") => Some(Command::PING(Ping::from(&*s))),
-            Some("PONG") if s.ends_with("\r\n") => Some(Command::PONG(Pong::from(&*s))),
-            Some("SUB") if s.ends_with("\r\n") => Some(Command::SUB(Sub::from(&*s))),
-            Some("PUB") if s.matches("\r\n").count() == 2 => Some(Command::PUB(Publish::from(&*s))),
-            _ => None,
+            Some("CONNECT") => {
+                if s.contains("\r\n") {
+                    Ok(Some(Command::CONNECT(Connect::try_from(s.into_owned())?)))
+                } else {
+                    Ok(None)
+                }
+            },
+            Some("PING") => {
+                if s.contains("\r\n") {
+                    Ok(Some(Command::PING(Ping::try_from(s.into_owned())?)))
+                } else {
+                    Ok(None)
+                }
+            }
+            Some("PONG") => {
+                if s.contains("\r\n") {
+                    Ok(Some(Command::PONG(Pong::try_from(s.into_owned())?)))
+                } else {
+                    Ok(None)
+                }
+            }
+            Some("SUB") => {
+                if s.contains("\r\n") {
+                    Ok(Some(Command::SUB(Sub::try_from(s.into_owned())?)))
+                } else {
+                    Ok(None)
+                }
+            }
+            Some("PUB") => {
+                if s.matches("\r\n").count() == 2 {
+                    Ok(Some(Command::PUB(Publish::try_from(s.into_owned())?)))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
         }
     }
 
@@ -56,6 +91,7 @@ impl Command {
             Command::SUB(sub) => sub.into(),
             Command::PUB(publish) => publish.into(),
             Command::MSG(msg) => msg.into(),
+            Command::ERR(err) => err.into(),
         }
     }
 }

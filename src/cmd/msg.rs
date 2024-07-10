@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Msg {
     pub subject: String,
     pub sid: String,

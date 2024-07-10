@@ -1,3 +1,6 @@
+use std::fmt::format;
+
+#[derive(Debug)]
 pub struct Sub {
     pub subject: String,
     pub queue_group: Option<String>,
@@ -22,6 +25,21 @@ impl Into<String> for Sub {
             format!("SUB {} {} {}\r\n", self.subject, self.queue_group.unwrap(), self.sid)
         } else {
             format!("SUB {} {}\r\n", self.subject, self.sid)
+        }
+    }
+}
+
+impl TryFrom<String> for Sub {
+    type Error = anyhow::Error;
+    fn try_from(value: String) -> anyhow::Result<Self, Self::Error> {
+        let parts: Vec<&str> = value.split_whitespace().collect();
+        dbg!(&parts);
+        if parts.len() == 4 {
+            Ok(Self::new(parts[1], Some(parts[2]), parts[3]))
+        } else if parts.len() == 3 {
+            Ok(Self::new(parts[1], None, parts[2]))
+        } else {
+            Err(anyhow::Error::msg(format!("Invalid SUB command: {}", value)))
         }
     }
 }

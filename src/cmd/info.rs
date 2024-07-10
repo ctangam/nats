@@ -1,6 +1,6 @@
 use std::fmt::Formatter;
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Info {
     pub host: String,
     pub port: u16,

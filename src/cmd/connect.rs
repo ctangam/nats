@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Connect {
 }
 
@@ -13,8 +14,13 @@ impl Into<String> for Connect {
     }
 }
 
-impl From<&str> for Connect {
-    fn from(value: &str) -> Self {
-        Self::new()
+impl TryFrom<String> for Connect {
+    type Error = anyhow::Error;
+    fn try_from(value: String) -> anyhow::Result<Self, Self::Error> {
+        if value == "CONNECT {}\r\n" {
+            Ok(Self::new())
+        } else {
+            Err(anyhow::Error::msg("Invalid CONNECT command"))
+        }
     }
 }

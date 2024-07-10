@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Publish {
     pub subject: String,
     pub reply_to: Option<String>,
@@ -24,6 +25,28 @@ impl Into<String> for Publish {
             format!("PUB {} {} {}\r\n{}\r\n", self.subject, self.reply_to.unwrap(), self.size, self.payload.unwrap_or_default())
         } else {
             format!("PUB {} {}\r\n{}\r\n", self.subject, self.size, self.payload.unwrap_or_default())
+        }
+    }
+}
+
+impl TryFrom<String> for Publish {
+    type Error = anyhow::Error;
+    fn try_from(value: String) -> anyhow::Result<Self, Self::Error> {
+        let parts: Vec<&str> = value.split("\r\n").collect();
+        dbg!(&parts);
+        let meta: Vec<&str> = parts[0].split_whitespace().collect();
+        dbg!(&meta);
+        let payload = if parts[1].is_empty() {
+            None
+        } else {
+            Some(parts[1])
+        };
+        if meta.len() == 4 {
+            Ok(Self::new(meta[1], Some(meta[2]), meta[3].parse().unwrap(), payload))
+        } else if meta.len() == 3 {
+            Ok(Self::new(meta[1], None, meta[2].parse().unwrap(), payload))
+        } else {
+            Err(anyhow::Error::msg(format!("Invalid PUB command: {}", value)))
         }
     }
 }
