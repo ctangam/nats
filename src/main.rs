@@ -113,20 +113,21 @@ async fn handle_cmd(
             stream.write(reply.as_bytes()).await?;
         }
         Command::PUB(publish) => {
-            let db = db.lock().unwrap();
-            if let Some(tx) = db.get(&publish.subject) {
-                let _ = tx.send(publish.payload.unwrap_or_default());
-            }
+            db.lock()
+                .unwrap()
+                .get(&publish.subject)
+                .and_then(|tx| tx.send(publish.payload.unwrap_or_default()).ok());
 
-            // let reply: String = Ok::new().into();
-            // stream.write(reply.as_bytes()).await?;
+            let reply: String = Ok::new().into();
+            stream.write(reply.as_bytes()).await?;
         }
         Command::SUB(sub) => {
-            let mut db = db.lock().unwrap();
-            let tx = db
+            let mut rx = db
+                .lock()
+                .unwrap()
                 .entry(sub.subject.clone())
-                .or_insert_with(|| broadcast::channel(10).0);
-            let mut rx = tx.subscribe();
+                .or_insert_with(|| broadcast::channel(10).0)
+                .subscribe();
 
             let rx = Box::pin(async_stream::stream! {
                 loop {
@@ -141,8 +142,8 @@ async fn handle_cmd(
 
             sid_map.lock().unwrap().insert(sub.sid, sub.subject);
 
-            // let reply: String = Ok::new().into();
-            // stream.write(reply.as_bytes()).await?;
+            let reply: String = Ok::new().into();
+            stream.write(reply.as_bytes()).await?;
         }
         Command::UNSUB(unsub) => {
             sid_map
@@ -150,6 +151,9 @@ async fn handle_cmd(
                 .unwrap()
                 .remove(&unsub.sid)
                 .and_then(|subject| subscriptions.remove(&(subject, unsub.sid)));
+
+            let reply: String = Ok::new().into();
+            stream.write(reply.as_bytes()).await?;
         }
         Command::ERR(err) => {
             let reply: String = err.into();
